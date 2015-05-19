@@ -5,7 +5,7 @@
 **Test Coverage:** [![Coverage Status](https://coveralls.io/repos/SeanDolphin/horsefeather/badge.svg)](https://coveralls.io/r/SeanDolphin/horsefeather)  
 **License:**       [![License](http://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 
-horsefeather is a [Google Appengine Engine](https://github.com/golang/appengine) extension that adds functionality to though tags to handle saving and loading datastore models differently.
+horsefeather is a [Google Appengine Engine](https://github.com/golang/appengine) extension that adds functionality through tags to handle saving and loading datastore models differently.
 
 **Usage**
 
