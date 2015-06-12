@@ -7,13 +7,21 @@
 
 horsefeather is a [Google Appengine Engine](https://github.com/golang/appengine) extension that adds functionality through tags to handle saving and loading datastore models differently.
 
+## Installation
+
+The import path for the package is *gopkg.in/SeanDolphin/horsefeather.v1*.
+
+To install it, run:
+
+    go get gopkg.in/SeanDolphin/horsefeather.v1
+
 **Usage**
 
 ~~~ go
 package somepackage
 
 import (
-	"github.com/SeanDolphin/horsefeather"
+	"gopkg.in/SeanDolphin/horsefeather.v1"
 	"google.golang.org/appengine/datastore"
 
 	"time"
