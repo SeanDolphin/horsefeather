@@ -7,12 +7,13 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/SeanDolphin/horsefeather"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/memcache"
 )
 
 func Add(ctx context.Context, req *http.Request) context.Context {
-	ctx = AddMemcache(ctx, &cache{
+	ctx = horsefeather.AddMemcache(ctx, &cache{
 		Codec: memcache.Codec{
 			Marshal: func(src interface{}) ([]byte, error) {
 				data, err := json.Marshal(src)
@@ -36,5 +37,5 @@ func Add(ctx context.Context, req *http.Request) context.Context {
 			},
 		},
 	})
-	return AddDatastore(ctx, &store{})
+	return horsefeather.AddDatastore(ctx, &store{})
 }

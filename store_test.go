@@ -132,7 +132,6 @@ var _ = Describe("Store", func() {
 					}
 				})
 			})
-
 		})
 
 		Context("when dealing with multiple keys", func() {
@@ -156,6 +155,35 @@ var _ = Describe("Store", func() {
 
 				It("should return an error deleting an empty", func() {
 					Expect(DeleteMulti(ctx, keys)).To(HaveOccurred())
+				})
+			})
+
+			Context("when prefetching results", func() {
+				It("should load data on multiple items", func() {
+					PutMulti(ctx, keys, data)
+					ctx = Prefetch(ctx, keys, data)
+					store.Clear()
+					cache.Clear()
+					var result = make([]string, len(keys))
+					err := GetMulti(ctx, keys, result)
+					Expect(err).ToNot(HaveOccurred())
+					for i := 0; i < len(keys); i++ {
+						Expect(result[i]).To(Equal(data[i]))
+					}
+				})
+
+				It("should load data for a single Item", func() {
+					PutMulti(ctx, keys, data)
+					ctx = Prefetch(ctx, keys, data)
+					store.Clear()
+					cache.Clear()
+
+					for i, key := range keys {
+						var result string
+						err := Get(ctx, key, &result)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(result).To(Equal(data[i]))
+					}
 				})
 			})
 
@@ -190,7 +218,7 @@ var _ = Describe("Store", func() {
 					}
 				})
 
-				It("should get all that even if it is split between the two store and memcache", func() {
+				It("should get all that even if it is split between the store and memcache", func() {
 					_, err := PutMulti(ctx, keys, &data)
 					Expect(err).ToNot(HaveOccurred())
 

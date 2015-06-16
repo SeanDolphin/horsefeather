@@ -3,6 +3,7 @@ package horsefeather
 import (
 	"reflect"
 
+	"github.com/cogger/stash"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/datastore"
 	"gopkg.in/cogger/cogger.v1"
@@ -11,9 +12,25 @@ import (
 	"gopkg.in/cogger/cogger.v1/wait"
 )
 
+func Prefetch(ctx context.Context, keys []*datastore.Key, dst interface{}) context.Context {
+	err := GetMulti(ctx, keys, dst)
+	if err == nil {
+		value := reflect.Indirect(reflect.ValueOf(dst))
+		for i := 0; i < len(keys); i++ {
+			item := value.Index(i)
+			ctx = stash.Set(ctx, keys[i].Encode(), item.Interface())
+		}
+	}
+	return ctx
+}
+
 func Delete(ctx context.Context, key *datastore.Key) error {
 	errs := wait.Resolve(ctx,
 		order.Parallel(ctx,
+			cogs.Simple(ctx, func() error {
+				stash.Remove(ctx, key.Encode())
+				return nil
+			}),
 			cogs.Simple(ctx, func() error {
 				return ds(ctx).Delete(ctx, key)
 			}),
@@ -30,15 +47,29 @@ func Delete(ctx context.Context, key *datastore.Key) error {
 
 func Get(ctx context.Context, key *datastore.Key, dst interface{}) error {
 	found := false
+	notFound := func() bool { return !found }
 	errs := wait.Resolve(ctx,
 		order.Series(ctx,
 			cogs.Simple(ctx, func() error {
-				err := mc(ctx).Get(ctx, key, dst)
-				found = err == nil
+				encodedKey := key.Encode()
+				if stash.Has(ctx, encodedKey) {
+					found = true
+					item := stash.Get(ctx, encodedKey)
+
+					reflect.Indirect(reflect.ValueOf(dst)).Set(reflect.ValueOf(item))
+				}
 				return nil
 			}),
 			order.If(ctx,
-				func() bool { return !found },
+				notFound,
+				cogs.Simple(ctx, func() error {
+					err := mc(ctx).Get(ctx, key, dst)
+					found = err == nil
+					return nil
+				}),
+			),
+			order.If(ctx,
+				notFound,
 				cogs.Simple(ctx, func() error {
 					return ds(ctx).Get(ctx, key, dst)
 				}),
@@ -77,6 +108,12 @@ func DeleteMulti(ctx context.Context, keys []*datastore.Key) error {
 	errs := wait.Resolve(ctx,
 		order.Parallel(ctx,
 			cogs.Simple(ctx, func() error {
+				for _, key := range keys {
+					stash.Remove(ctx, key.Encode())
+				}
+				return nil
+			}),
+			cogs.Simple(ctx, func() error {
 				return ds(ctx).DeleteMulti(ctx, keys)
 			}),
 			cogs.Simple(ctx, func() error {
@@ -102,16 +139,42 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 		for i := 0; i < len(keys); i++ {
 			result[keys[i]] = nil
 			func(i int) {
-				item := value.Index(i)
-				workers = append(workers, cogs.Simple(ctx, func() error {
-					data := item.Interface()
-					err := mc(ctx).Get(ctx, keys[i], &data)
+				var data interface{}
+				found := false
 
-					if err == nil {
+				loadFromStash := cogs.Simple(ctx, func() error {
+					encodedKey := keys[i].Encode()
+					if stash.Has(ctx, encodedKey) {
+						data = stash.Get(ctx, encodedKey)
+						found = true
+					}
+					return nil
+				})
+
+				loadFromMC := order.If(ctx,
+					func() bool { return !found },
+					cogs.Simple(ctx, func() error {
+						item := value.Index(i)
+						data = item.Interface()
+						err := mc(ctx).Get(ctx, keys[i], &data)
+						found = err == nil
+						return nil
+					}),
+				)
+
+				updateResult := cogs.Simple(ctx, func() error {
+					if found {
 						result[keys[i]] = data
 					}
 					return nil
-				}))
+				})
+
+				workers = append(workers, order.Series(ctx,
+					loadFromStash,
+					loadFromMC,
+					updateResult,
+				))
+
 			}(i)
 		}
 		return nil

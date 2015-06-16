@@ -38,7 +38,7 @@ func (mc *cache) Set(ctx context.Context, key *datastore.Key, dst interface{}) e
 }
 
 func (mc *cache) SetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error {
-	value := reflect.ValueOf(src)
+	value := reflect.ValueOf(dst)
 	if value.Kind() == reflect.Ptr {
 		value = value.Elem()
 	}
