@@ -21,7 +21,7 @@ type store struct {
 
 func (ds *store) Delete(ctx context.Context, key *datastore.Key) error {
 	if _, ok := ds.items[key.Encode()]; !ok {
-		return errors.New("cache miss")
+		return errors.New("does not exist")
 	}
 	delete(ds.items, key.Encode())
 	return nil
@@ -42,7 +42,8 @@ func (ds *store) Get(ctx context.Context, key *datastore.Key, dst interface{}) e
 	if ok {
 		return json.Unmarshal(data, &dst)
 	}
-	return nil
+
+	return errors.New("entity does not exist")
 }
 
 func (ds *store) GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error {
@@ -59,6 +60,9 @@ func (ds *store) GetMulti(ctx context.Context, keys []*datastore.Key, dst interf
 }
 
 func (ds *store) Put(ctx context.Context, key *datastore.Key, src interface{}) (*datastore.Key, error) {
+	if src == nil {
+		return key, errors.New("item is nil")
+	}
 	data, err := json.Marshal(src)
 	if err == nil {
 		ds.items[key.Encode()] = data
@@ -71,6 +75,11 @@ func (ds *store) PutMulti(ctx context.Context, keys []*datastore.Key, src interf
 	if value.Kind() == reflect.Ptr {
 		value = value.Elem()
 	}
+
+	if value.Len() != len(keys) {
+		return keys, errors.New("length and keys do not match")
+	}
+
 	for i := 0; i < value.Len(); i++ {
 		item := value.Index(i)
 		_, err := ds.Put(ctx, keys[i], item.Interface())
@@ -85,4 +94,8 @@ func (ds *store) PutMulti(ctx context.Context, keys []*datastore.Key, src interf
 func (ds *store) Contains(key *datastore.Key) bool {
 	_, ok := ds.items[key.Encode()]
 	return ok
+}
+
+func (ds *store) Clear() {
+	ds.items = map[string][]byte{}
 }

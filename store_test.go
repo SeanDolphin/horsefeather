@@ -39,6 +39,11 @@ var _ = Describe("Store", func() {
 			ctx = AddDatastore(ctx, store)
 		})
 
+		AfterEach(func() {
+			store.Clear()
+			cache.Clear()
+		})
+
 		Context("when dealing with single keys", func() {
 			var data = "bob"
 			Context("when deleteing", func() {
@@ -53,6 +58,12 @@ var _ = Describe("Store", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(cache.Contains(key)).To(BeFalse(), "memcache")
 						Expect(store.Contains(key)).To(BeFalse(), "datastore")
+					}
+				})
+
+				It("should error when there is nothing to delete", func() {
+					for _, key := range keys {
+						Expect(Delete(ctx, key)).To(HaveOccurred())
 					}
 				})
 			})
@@ -95,6 +106,13 @@ var _ = Describe("Store", func() {
 						Expect(result).To(Equal(data))
 					}
 				})
+
+				It("should error when trying to get something that does not exist", func() {
+					for _, key := range keys {
+						var result string
+						Expect(Get(ctx, key, &result)).To(HaveOccurred())
+					}
+				})
 			})
 
 			Context("whenning putting a key", func() {
@@ -106,7 +124,15 @@ var _ = Describe("Store", func() {
 						Expect(store.Contains(key)).To(BeTrue(), "datastore")
 					}
 				})
+
+				It("should error when trying to save nil", func() {
+					for _, key := range keys {
+						_, err := Put(ctx, key, nil)
+						Expect(err).To(HaveOccurred())
+					}
+				})
 			})
+
 		})
 
 		Context("when dealing with multiple keys", func() {
@@ -126,6 +152,10 @@ var _ = Describe("Store", func() {
 						Expect(cache.Contains(key)).To(BeFalse(), "memcache")
 						Expect(store.Contains(key)).To(BeFalse(), "datastore")
 					}
+				})
+
+				It("should return an error deleting an empty", func() {
+					Expect(DeleteMulti(ctx, keys)).To(HaveOccurred())
 				})
 			})
 
@@ -180,6 +210,11 @@ var _ = Describe("Store", func() {
 						Expect(result).To(Equal(data[i]))
 					}
 				})
+
+				It("It should error on things that cannot be gotton", func() {
+					var result []string
+					Expect(GetMulti(ctx, keys, &result)).To(HaveOccurred())
+				})
 			})
 
 			Context("when putting", func() {
@@ -190,6 +225,12 @@ var _ = Describe("Store", func() {
 						Expect(cache.Contains(key)).To(BeTrue(), "memcache")
 						Expect(store.Contains(key)).To(BeTrue(), "datastore")
 					}
+				})
+
+				It("It should error on things that can be stored", func() {
+					ts := []string{}
+					_, err := PutMulti(ctx, keys, ts)
+					Expect(err).To(HaveOccurred())
 				})
 			})
 		})

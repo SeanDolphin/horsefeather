@@ -36,7 +36,7 @@ func (mc *cache) Get(ctx context.Context, key *datastore.Key, dst interface{}) e
 	if ok {
 		return json.Unmarshal(data, &dst)
 	}
-	return errors.New("no item")
+	return errors.New("entity does not exist")
 }
 
 func (mc *cache) Set(ctx context.Context, key *datastore.Key, src interface{}) error {
@@ -63,4 +63,8 @@ func (mc *cache) SetMulti(ctx context.Context, keys []*datastore.Key, src interf
 func (mc *cache) Contains(key *datastore.Key) bool {
 	_, ok := mc.items[key.Encode()]
 	return ok
+}
+
+func (mc *cache) Clear() {
+	mc.items = map[string][]byte{}
 }

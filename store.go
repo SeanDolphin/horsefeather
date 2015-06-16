@@ -66,6 +66,7 @@ func Put(ctx context.Context, key *datastore.Key, src interface{}) (*datastore.K
 			}),
 		),
 	)
+
 	if len(errs) > 0 {
 		return keyResult, ErrMulti(errs)
 	}
@@ -95,6 +96,9 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 	result := map[*datastore.Key]interface{}{}
 	workers := make([]cogger.Cog, 0, len(keys))
 	createMemoryLoaders := cogs.Simple(ctx, func() error {
+		if len(keys) != value.Len() {
+			return ErrInvalidEntityType
+		}
 		for i := 0; i < len(keys); i++ {
 			result[keys[i]] = nil
 			func(i int) {
