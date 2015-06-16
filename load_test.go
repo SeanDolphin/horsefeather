@@ -21,6 +21,4 @@ func runLoadTest(test testCase) {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(dst).To(BeEquivalentTo(test.Expected))
 	})
-
-	// It("",func(){})
 }
