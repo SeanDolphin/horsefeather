@@ -7,11 +7,17 @@ import (
 
 var ErrIncompleteKey = errors.New("Key imcomplete but used a complete key.")
 
-var ErrBadKey = errors.New("Key is corrupt")
-
 var ErrNoContext = errors.New("context does not exist")
 
-var ErrBadEntity = errors.New("could not save Entity")
+// ErrInvalidEntityType is returned when functions like Get or Next are
+// passed a dst or src argument of invalid type.
+var ErrInvalidEntityType = errors.New("datastore: invalid entity type")
+
+// ErrInvalidKey is returned when an invalid key is presented.
+var ErrInvalidKey = errors.New("datastore: invalid key")
+
+// ErrNoSuchEntity is returned when no entity was found for a given key.
+var ErrNoSuchEntity = errors.New("datastore: no such entity")
 
 type ErrMulti []error
 

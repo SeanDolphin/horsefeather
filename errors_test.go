@@ -33,6 +33,5 @@ var _ = Describe("ErrMulti", func() {
 			errs = append(errs, errors.New(errMsg))
 			Expect(errs.Error()).To(Equal(fmt.Sprintf("%s (and %d other errors)", errMsg, i+1)))
 		}
-
 	})
 })
