@@ -13,6 +13,10 @@ import (
 )
 
 func Add(ctx context.Context, req *http.Request) context.Context {
+	return Set(ctx)
+}
+
+func Set(ctx context.Context) context.context {
 	ctx = horsefeather.AddMemcache(ctx, &cache{
 		Codec: memcache.Codec{
 			Marshal: func(src interface{}) ([]byte, error) {
