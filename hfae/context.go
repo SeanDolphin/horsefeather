@@ -7,13 +7,14 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/SeanDolphin/horsefeather"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/memcache"
+	"gopkg.in/SeanDolphin/horsefeather.v1"
 )
 
 func Add(ctx context.Context, req *http.Request) context.Context {
-	return Set(ctx)
+	ctx = Set(ctx)
+	return ctx
 }
 
 func Set(ctx context.Context) context.Context {
@@ -41,5 +42,7 @@ func Set(ctx context.Context) context.Context {
 			},
 		},
 	})
-	return horsefeather.AddDatastore(ctx, &store{})
+	ctx = horsefeather.AddDatastore(ctx, &store{})
+
+	return ctx
 }

@@ -10,12 +10,14 @@ func c(ctx context.Context) *container {
 		return &container{}
 	}
 
-	box, _ := value.(*container)
+	box := value.(*container)
+
 	return box
 }
 
 func setC(ctx context.Context, box *container) context.Context {
-	return context.WithValue(ctx, &contextKey, box)
+	ctx = context.WithValue(ctx, &contextKey, box)
+	return ctx
 }
 
 type container struct {

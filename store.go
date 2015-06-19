@@ -13,12 +13,14 @@ import (
 )
 
 func Prefetch(ctx context.Context, keys []*datastore.Key, dst interface{}) context.Context {
-	err := GetMulti(ctx, keys, dst)
-	if err == nil {
-		value := reflect.Indirect(reflect.ValueOf(dst))
-		for i := 0; i < len(keys); i++ {
-			item := value.Index(i)
-			ctx = stash.Set(ctx, keys[i].Encode(), item.Interface())
+	if len(keys) > 0 {
+		err := GetMulti(ctx, keys, dst)
+		if err == nil {
+			value := reflect.Indirect(reflect.ValueOf(dst))
+			for i := 0; i < len(keys); i++ {
+				item := value.Index(i)
+				ctx = stash.Set(ctx, keys[i].Encode(), item.Interface())
+			}
 		}
 	}
 	return ctx
