@@ -141,13 +141,15 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 		for i := 0; i < len(keys); i++ {
 			result[keys[i]] = nil
 			func(i int) {
-				var data interface{}
+
 				found := false
 
 				loadFromStash := cogs.Simple(ctx, func() error {
 					encodedKey := keys[i].Encode()
 					if stash.Has(ctx, encodedKey) {
-						data = stash.Get(ctx, encodedKey)
+						data := stash.Get(ctx, encodedKey)
+
+						result[keys[i]] = data
 						found = true
 					}
 					return nil
@@ -156,25 +158,24 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 				loadFromMC := order.If(ctx,
 					func() bool { return !found },
 					cogs.Simple(ctx, func() error {
-						item := value.Index(i)
-						data = item.Interface()
+						item := value.Index(i).Type()
+						if item.Kind() == reflect.Ptr {
+							item = item.Elem()
+						}
+						data := reflect.New(item).Interface()
 						err := mc(ctx).Get(ctx, keys[i], &data)
+						if err == nil {
+							result[keys[i]] = data
+						}
+
 						found = err == nil
 						return nil
 					}),
 				)
 
-				updateResult := cogs.Simple(ctx, func() error {
-					if found {
-						result[keys[i]] = data
-					}
-					return nil
-				})
-
 				workers = append(workers, order.Series(ctx,
 					loadFromStash,
 					loadFromMC,
-					updateResult,
 				))
 
 			}(i)
@@ -218,7 +219,7 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 	setResultsToDst := cogs.Simple(ctx, func() error {
 		for i, key := range keys {
 			item := result[key]
-			if item != nil {
+			if item != nil && value.Index(i).Type().AssignableTo(reflect.TypeOf(item)) {
 				value.Index(i).Set(reflect.ValueOf(item))
 			}
 		}
