@@ -1,11 +1,11 @@
 package horsefeather
 
 import (
-	"github.com/SeanDolphin/horsefeather/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/datastore"
+	"gopkg.in/SeanDolphin/horsefeather.v1/test"
 )
 
 var encodedKeys = []string{
