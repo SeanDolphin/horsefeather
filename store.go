@@ -33,12 +33,18 @@ func Delete(ctx context.Context, key *datastore.Key) error {
 				stash.Remove(ctx, key.Encode())
 				return nil
 			}),
-			cogs.Simple(ctx, func() error {
-				return ds(ctx).Delete(ctx, key)
-			}),
-			cogs.Simple(ctx, func() error {
-				return mc(ctx).Delete(ctx, key)
-			}),
+			order.If(ctx,
+				func() bool { return IsDatastoreAllowed(ctx) },
+				cogs.Simple(ctx, func() error {
+					return ds(ctx).Delete(ctx, key)
+				}),
+			),
+			order.If(ctx,
+				func() bool { return IsMemcacheAllowed(ctx) },
+				cogs.Simple(ctx, func() error {
+					return mc(ctx).Delete(ctx, key)
+				}),
+			),
 		),
 	)
 	if len(errs) > 0 {
@@ -49,7 +55,6 @@ func Delete(ctx context.Context, key *datastore.Key) error {
 
 func Get(ctx context.Context, key *datastore.Key, dst interface{}) error {
 	found := false
-	notFound := func() bool { return !found }
 	errs := wait.Resolve(ctx,
 		order.Series(ctx,
 			cogs.Simple(ctx, func() error {
@@ -57,13 +62,12 @@ func Get(ctx context.Context, key *datastore.Key, dst interface{}) error {
 				if stash.Has(ctx, encodedKey) {
 					found = true
 					item := stash.Get(ctx, encodedKey)
-
 					reflect.Indirect(reflect.ValueOf(dst)).Set(reflect.ValueOf(item))
 				}
 				return nil
 			}),
 			order.If(ctx,
-				notFound,
+				func() bool { return !found && IsMemcacheAllowed(ctx) },
 				cogs.Simple(ctx, func() error {
 					err := mc(ctx).Get(ctx, key, dst)
 					found = err == nil
@@ -71,7 +75,7 @@ func Get(ctx context.Context, key *datastore.Key, dst interface{}) error {
 				}),
 			),
 			order.If(ctx,
-				notFound,
+				func() bool { return !found && IsDatastoreAllowed(ctx) },
 				cogs.Simple(ctx, func() error {
 					return ds(ctx).Get(ctx, key, dst)
 				}),
@@ -90,13 +94,19 @@ func Put(ctx context.Context, key *datastore.Key, src interface{}) (*datastore.K
 	var err error
 	errs := wait.Resolve(ctx,
 		order.Parallel(ctx,
-			cogs.Simple(ctx, func() error {
-				keyResult, err = ds(ctx).Put(ctx, key, src)
-				return err
-			}),
-			cogs.Simple(ctx, func() error {
-				return mc(ctx).Set(ctx, key, src)
-			}),
+			order.If(ctx,
+				func() bool { return IsDatastoreAllowed(ctx) },
+				cogs.Simple(ctx, func() error {
+					keyResult, err = ds(ctx).Put(ctx, key, src)
+					return err
+				}),
+			),
+			order.If(ctx,
+				func() bool { return IsMemcacheAllowed(ctx) },
+				cogs.Simple(ctx, func() error {
+					return mc(ctx).Set(ctx, key, src)
+				}),
+			),
 		),
 	)
 
@@ -115,12 +125,18 @@ func DeleteMulti(ctx context.Context, keys []*datastore.Key) error {
 				}
 				return nil
 			}),
-			cogs.Simple(ctx, func() error {
-				return ds(ctx).DeleteMulti(ctx, keys)
-			}),
-			cogs.Simple(ctx, func() error {
-				return mc(ctx).DeleteMulti(ctx, keys)
-			}),
+			order.If(ctx,
+				func() bool { return IsDatastoreAllowed(ctx) },
+				cogs.Simple(ctx, func() error {
+					return ds(ctx).DeleteMulti(ctx, keys)
+				}),
+			),
+			order.If(ctx,
+				func() bool { return IsMemcacheAllowed(ctx) },
+				cogs.Simple(ctx, func() error {
+					return mc(ctx).DeleteMulti(ctx, keys)
+				}),
+			),
 		),
 	)
 	if len(errs) > 0 {
@@ -156,7 +172,7 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 				})
 
 				loadFromMC := order.If(ctx,
-					func() bool { return !found },
+					func() bool { return !found && IsMemcacheAllowed(ctx) },
 					cogs.Simple(ctx, func() error {
 						item := value.Index(i).Type()
 						if item.Kind() == reflect.Ptr {
@@ -202,7 +218,7 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 	})
 
 	loadMissing := order.If(ctx,
-		func() bool { return len(remainingKeys) > 0 },
+		func() bool { return len(remainingKeys) > 0 && IsDatastoreAllowed(ctx) },
 		cogs.Simple(ctx, func() error {
 			l := len(remainingKeys)
 			remainingItems := reflect.MakeSlice(value.Type(), l, l)
@@ -250,13 +266,19 @@ func PutMulti(ctx context.Context, keys []*datastore.Key, src interface{}) ([]*d
 	var err error
 	errs := wait.Resolve(ctx,
 		order.Parallel(ctx,
-			cogs.Simple(ctx, func() error {
-				keyResult, err = ds(ctx).PutMulti(ctx, keys, src)
-				return err
-			}),
-			cogs.Simple(ctx, func() error {
-				return mc(ctx).SetMulti(ctx, keys, src)
-			}),
+			order.If(ctx,
+				func() bool { return IsDatastoreAllowed(ctx) },
+				cogs.Simple(ctx, func() error {
+					keyResult, err = ds(ctx).PutMulti(ctx, keys, src)
+					return err
+				}),
+			),
+			order.If(ctx,
+				func() bool { return IsMemcacheAllowed(ctx) },
+				cogs.Simple(ctx, func() error {
+					return mc(ctx).SetMulti(ctx, keys, src)
+				}),
+			),
 		),
 	)
 	if len(errs) > 0 {

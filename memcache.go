@@ -26,3 +26,13 @@ func AddMemcache(ctx context.Context, mc Memcache) context.Context {
 	box.mc = mc
 	return setC(ctx, box)
 }
+
+func OnlyMemcache(ctx context.Context, flag bool) context.Context {
+	box := c(ctx)
+	box.noDS = flag
+	return setC(ctx, box)
+}
+
+func IsMemcacheAllowed(ctx context.Context) bool {
+	return !c(ctx).noMC
+}

@@ -17,6 +17,8 @@ func Add(ctx context.Context, req *http.Request) context.Context {
 	return ctx
 }
 
+const onemb = 1000000
+
 func Set(ctx context.Context) context.Context {
 	ctx = horsefeather.AddMemcache(ctx, &cache{
 		Codec: memcache.Codec{
@@ -29,6 +31,10 @@ func Set(ctx context.Context) context.Context {
 				w := gzip.NewWriter(buf)
 				w.Write(data)
 				w.Close()
+
+				if buf.Len() > onemb {
+					return []byte{}, horsefeather.ErrEntityToLarge
+				}
 				return buf.Bytes(), err
 			},
 			Unmarshal: func(data []byte, dst interface{}) error {

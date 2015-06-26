@@ -21,6 +21,9 @@ func setC(ctx context.Context, box *container) context.Context {
 }
 
 type container struct {
-	mc Memcache
-	ds Datastore
+	mc   Memcache
+	noMC bool
+
+	ds   Datastore
+	noDS bool
 }

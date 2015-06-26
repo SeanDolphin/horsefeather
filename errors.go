@@ -11,13 +11,15 @@ var ErrNoContext = errors.New("context does not exist")
 
 // ErrInvalidEntityType is returned when functions like Get or Next are
 // passed a dst or src argument of invalid type.
-var ErrInvalidEntityType = errors.New("datastore: invalid entity type")
+var ErrInvalidEntityType = errors.New("invalid entity type")
 
 // ErrInvalidKey is returned when an invalid key is presented.
-var ErrInvalidKey = errors.New("datastore: invalid key")
+var ErrInvalidKey = errors.New("invalid key")
 
 // ErrNoSuchEntity is returned when no entity was found for a given key.
-var ErrNoSuchEntity = errors.New("datastore: no such entity")
+var ErrNoSuchEntity = errors.New("no such entity")
+
+var ErrEntityToLarge = errors.New("entity to large to save")
 
 type ErrMulti []error
 

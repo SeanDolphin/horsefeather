@@ -1,7 +1,6 @@
 package test
 
 import (
-	"encoding/json"
 	"errors"
 	"reflect"
 
@@ -11,12 +10,12 @@ import (
 
 func NewCache() *cache {
 	return &cache{
-		items: map[string][]byte{},
+		items: map[string]interface{}{},
 	}
 }
 
 type cache struct {
-	items map[string][]byte
+	items map[string]interface{}
 }
 
 func (mc *cache) Delete(ctx context.Context, key *datastore.Key) error {
@@ -32,19 +31,21 @@ func (mc *cache) DeleteMulti(ctx context.Context, keys []*datastore.Key) error {
 }
 
 func (mc *cache) Get(ctx context.Context, key *datastore.Key, dst interface{}) error {
-	data, ok := mc.items[key.Encode()]
+	item, ok := mc.items[key.Encode()]
 	if ok {
-		return json.Unmarshal(data, &dst)
+		reflect.Indirect(reflect.ValueOf(dst)).Set(reflect.ValueOf(item))
+		return nil
 	}
 	return errors.New("entity does not exist")
 }
 
 func (mc *cache) Set(ctx context.Context, key *datastore.Key, src interface{}) error {
-	data, err := json.Marshal(src)
-	if err == nil {
-		mc.items[key.Encode()] = data
+	value := reflect.Indirect(reflect.ValueOf(src))
+	if !value.IsValid() {
+		return errors.New("invalid entity")
 	}
-	return err
+	mc.items[key.Encode()] = value.Interface()
+	return nil
 }
 
 func (mc *cache) SetMulti(ctx context.Context, keys []*datastore.Key, src interface{}) error {
@@ -66,5 +67,5 @@ func (mc *cache) Contains(key *datastore.Key) bool {
 }
 
 func (mc *cache) Clear() {
-	mc.items = map[string][]byte{}
+	mc.items = map[string]interface{}{}
 }

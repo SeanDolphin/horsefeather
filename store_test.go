@@ -66,6 +66,40 @@ var _ = Describe("Store", func() {
 						Expect(Delete(ctx, key)).To(HaveOccurred())
 					}
 				})
+
+				It("should delete only to the memcache when memcache only is allowed.", func() {
+					for _, key := range keys {
+						_, err := Put(ctx, key, &data)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(cache.Contains(key)).To(BeTrue(), "memcache")
+						Expect(store.Contains(key)).To(BeTrue(), "datastore")
+					}
+
+					ctx = OnlyMemcache(ctx, true)
+					for _, key := range keys {
+						err := Delete(ctx, key)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(cache.Contains(key)).To(BeFalse(), "memcache")
+						Expect(store.Contains(key)).To(BeTrue(), "datastore")
+					}
+				})
+
+				It("should delete only to the datastore when datastore only is allowed.", func() {
+					for _, key := range keys {
+						_, err := Put(ctx, key, &data)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(cache.Contains(key)).To(BeTrue(), "memcache")
+						Expect(store.Contains(key)).To(BeTrue(), "datastore")
+					}
+
+					ctx = OnlyDatastore(ctx, true)
+					for _, key := range keys {
+						err := Delete(ctx, key)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(cache.Contains(key)).To(BeTrue(), "memcache")
+						Expect(store.Contains(key)).To(BeFalse(), "datastore")
+					}
+				})
 			})
 
 			Context("when getting", func() {
@@ -113,6 +147,32 @@ var _ = Describe("Store", func() {
 						Expect(Get(ctx, key, &result)).To(HaveOccurred())
 					}
 				})
+
+				It("should work when only memcache is allowed", func() {
+					ctx = OnlyMemcache(ctx, true)
+					for _, key := range keys {
+						_, err := Put(ctx, key, &data)
+						Expect(err).ToNot(HaveOccurred())
+
+						var result string
+						err = Get(ctx, key, &result)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(result).To(Equal(data))
+					}
+				})
+
+				It("should work when only datastore is allowed", func() {
+					ctx = OnlyDatastore(ctx, true)
+					for _, key := range keys {
+						_, err := Put(ctx, key, &data)
+						Expect(err).ToNot(HaveOccurred())
+
+						var result string
+						err = Get(ctx, key, &result)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(result).To(Equal(data))
+					}
+				})
 			})
 
 			Context("whenning putting a key", func() {
@@ -129,6 +189,26 @@ var _ = Describe("Store", func() {
 					for _, key := range keys {
 						_, err := Put(ctx, key, nil)
 						Expect(err).To(HaveOccurred())
+					}
+				})
+
+				It("should put only to the memcache when memcache only is allowed.", func() {
+					ctx = OnlyMemcache(ctx, true)
+					for _, key := range keys {
+						_, err := Put(ctx, key, &data)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(cache.Contains(key)).To(BeTrue(), "memcache")
+						Expect(store.Contains(key)).To(BeFalse(), "datastore")
+					}
+				})
+
+				It("should put only to the datastore when datastore only is allowed.", func() {
+					ctx = OnlyDatastore(ctx, true)
+					for _, key := range keys {
+						_, err := Put(ctx, key, &data)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(cache.Contains(key)).To(BeFalse(), "memcache")
+						Expect(store.Contains(key)).To(BeTrue(), "datastore")
 					}
 				})
 			})
@@ -155,6 +235,42 @@ var _ = Describe("Store", func() {
 
 				It("should return an error deleting an empty", func() {
 					Expect(DeleteMulti(ctx, keys)).To(HaveOccurred())
+				})
+
+				It("should delete only to the memcache when memcache only is allowed.", func() {
+					for _, key := range keys {
+						_, err := Put(ctx, key, &data)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(cache.Contains(key)).To(BeTrue(), "memcache")
+						Expect(store.Contains(key)).To(BeTrue(), "datastore")
+					}
+
+					ctx = OnlyMemcache(ctx, true)
+					err := DeleteMulti(ctx, keys)
+					Expect(err).ToNot(HaveOccurred())
+					for _, key := range keys {
+
+						Expect(cache.Contains(key)).To(BeFalse(), "memcache")
+						Expect(store.Contains(key)).To(BeTrue(), "datastore")
+					}
+				})
+
+				It("should delete only to the datastore when datastore only is allowed.", func() {
+					for _, key := range keys {
+						_, err := Put(ctx, key, &data)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(cache.Contains(key)).To(BeTrue(), "memcache")
+						Expect(store.Contains(key)).To(BeTrue(), "datastore")
+					}
+
+					ctx = OnlyDatastore(ctx, true)
+					err := DeleteMulti(ctx, keys)
+					Expect(err).ToNot(HaveOccurred())
+					for _, key := range keys {
+
+						Expect(cache.Contains(key)).To(BeTrue(), "memcache")
+						Expect(store.Contains(key)).To(BeFalse(), "datastore")
+					}
 				})
 			})
 
@@ -239,7 +355,25 @@ var _ = Describe("Store", func() {
 					}
 				})
 
-				It("It should error on things that cannot be gotton", func() {
+				It("should work with arrays to pointers", func() {
+					pts := []*string{}
+					for _, d := range data {
+						pts = append(pts, &d)
+					}
+					_, err := PutMulti(ctx, keys, pts)
+					Expect(err).ToNot(HaveOccurred())
+
+					var results = make([]*string, len(keys))
+					err = GetMulti(ctx, keys, &results)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(results).To(HaveLen(len(data)))
+
+					// for i, result := range results {
+					// 	Expect(*result).To(Equal(data[i]))
+					// }
+				})
+
+				It("should error on things that cannot be gotton", func() {
 					var result []string
 					Expect(GetMulti(ctx, keys, &result)).To(HaveOccurred())
 				})

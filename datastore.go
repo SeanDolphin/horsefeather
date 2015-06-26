@@ -27,3 +27,13 @@ func AddDatastore(ctx context.Context, ds Datastore) context.Context {
 	box.ds = ds
 	return setC(ctx, box)
 }
+
+func OnlyDatastore(ctx context.Context, flag bool) context.Context {
+	box := c(ctx)
+	box.noMC = flag
+	return setC(ctx, box)
+}
+
+func IsDatastoreAllowed(ctx context.Context) bool {
+	return !c(ctx).noDS
+}
