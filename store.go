@@ -3,13 +3,13 @@ package horsefeather
 import (
 	"reflect"
 
-	"github.com/cogger/stash"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/datastore"
 	"gopkg.in/cogger/cogger.v1"
 	"gopkg.in/cogger/cogger.v1/cogs"
 	"gopkg.in/cogger/cogger.v1/order"
 	"gopkg.in/cogger/cogger.v1/wait"
+	"gopkg.in/cogger/stash.v1"
 )
 
 func Prefetch(ctx context.Context, keys []*datastore.Key, dst interface{}) context.Context {
