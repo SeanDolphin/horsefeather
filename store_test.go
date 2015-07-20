@@ -75,9 +75,8 @@ var _ = Describe("Store", func() {
 						Expect(store.Contains(key)).To(BeTrue(), "datastore")
 					}
 
-					ctx = OnlyMemcache(ctx, true)
 					for _, key := range keys {
-						err := Delete(ctx, key)
+						err := Delete(OnlyMemcache(ctx, true), key)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(cache.Contains(key)).To(BeFalse(), "memcache")
 						Expect(store.Contains(key)).To(BeTrue(), "datastore")
@@ -92,9 +91,8 @@ var _ = Describe("Store", func() {
 						Expect(store.Contains(key)).To(BeTrue(), "datastore")
 					}
 
-					ctx = OnlyDatastore(ctx, true)
 					for _, key := range keys {
-						err := Delete(ctx, key)
+						err := Delete(OnlyDatastore(ctx, true), key)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(cache.Contains(key)).To(BeTrue(), "memcache")
 						Expect(store.Contains(key)).To(BeFalse(), "datastore")
@@ -149,26 +147,25 @@ var _ = Describe("Store", func() {
 				})
 
 				It("should work when only memcache is allowed", func() {
-					ctx = OnlyMemcache(ctx, true)
+
 					for _, key := range keys {
-						_, err := Put(ctx, key, &data)
+						_, err := Put(OnlyMemcache(ctx, true), key, &data)
 						Expect(err).ToNot(HaveOccurred())
 
 						var result string
-						err = Get(ctx, key, &result)
+						err = Get(OnlyMemcache(ctx, true), key, &result)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(result).To(Equal(data))
 					}
 				})
 
 				It("should work when only datastore is allowed", func() {
-					ctx = OnlyDatastore(ctx, true)
 					for _, key := range keys {
-						_, err := Put(ctx, key, &data)
+						_, err := Put(OnlyDatastore(ctx, true), key, &data)
 						Expect(err).ToNot(HaveOccurred())
 
 						var result string
-						err = Get(ctx, key, &result)
+						err = Get(OnlyDatastore(ctx, true), key, &result)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(result).To(Equal(data))
 					}
@@ -193,9 +190,9 @@ var _ = Describe("Store", func() {
 				})
 
 				It("should put only to the memcache when memcache only is allowed.", func() {
-					ctx = OnlyMemcache(ctx, true)
+
 					for _, key := range keys {
-						_, err := Put(ctx, key, &data)
+						_, err := Put(OnlyMemcache(ctx, true), key, &data)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(cache.Contains(key)).To(BeTrue(), "memcache")
 						Expect(store.Contains(key)).To(BeFalse(), "datastore")
@@ -203,9 +200,9 @@ var _ = Describe("Store", func() {
 				})
 
 				It("should put only to the datastore when datastore only is allowed.", func() {
-					ctx = OnlyDatastore(ctx, true)
+
 					for _, key := range keys {
-						_, err := Put(ctx, key, &data)
+						_, err := Put(OnlyDatastore(ctx, true), key, &data)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(cache.Contains(key)).To(BeFalse(), "memcache")
 						Expect(store.Contains(key)).To(BeTrue(), "datastore")

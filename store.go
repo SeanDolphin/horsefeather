@@ -13,6 +13,7 @@ import (
 )
 
 func Prefetch(ctx context.Context, keys []*datastore.Key, dst interface{}) context.Context {
+	defer reset(ctx)
 	if len(keys) > 0 {
 		err := GetMulti(ctx, keys, dst)
 		if err == nil {
@@ -27,6 +28,7 @@ func Prefetch(ctx context.Context, keys []*datastore.Key, dst interface{}) conte
 }
 
 func Delete(ctx context.Context, key *datastore.Key) error {
+	defer reset(ctx)
 	errs := wait.Resolve(ctx,
 		order.Parallel(ctx,
 			cogs.Simple(ctx, func() error {
@@ -54,6 +56,7 @@ func Delete(ctx context.Context, key *datastore.Key) error {
 }
 
 func Get(ctx context.Context, key *datastore.Key, dst interface{}) error {
+	defer reset(ctx)
 	found := false
 	errs := wait.Resolve(ctx,
 		order.Series(ctx,
@@ -90,6 +93,7 @@ func Get(ctx context.Context, key *datastore.Key, dst interface{}) error {
 }
 
 func Put(ctx context.Context, key *datastore.Key, src interface{}) (*datastore.Key, error) {
+	defer reset(ctx)
 	var keyResult *datastore.Key
 	var err error
 	errs := wait.Resolve(ctx,
@@ -117,6 +121,7 @@ func Put(ctx context.Context, key *datastore.Key, src interface{}) (*datastore.K
 }
 
 func DeleteMulti(ctx context.Context, keys []*datastore.Key) error {
+	defer reset(ctx)
 	errs := wait.Resolve(ctx,
 		order.Parallel(ctx,
 			cogs.Simple(ctx, func() error {
@@ -146,6 +151,7 @@ func DeleteMulti(ctx context.Context, keys []*datastore.Key) error {
 }
 
 func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error {
+	defer reset(ctx)
 	value := reflect.Indirect(reflect.ValueOf(dst))
 
 	result := map[*datastore.Key]interface{}{}
@@ -262,6 +268,7 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 }
 
 func PutMulti(ctx context.Context, keys []*datastore.Key, src interface{}) ([]*datastore.Key, error) {
+	defer reset(ctx)
 	var keyResult []*datastore.Key
 	var err error
 	errs := wait.Resolve(ctx,

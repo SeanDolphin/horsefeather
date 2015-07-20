@@ -27,3 +27,10 @@ type container struct {
 	ds   Datastore
 	noDS bool
 }
+
+func reset(ctx context.Context) {
+	box := c(ctx)
+	box.noDS = false
+	box.noMC = false
+	setC(ctx, box)
+}
