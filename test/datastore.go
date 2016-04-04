@@ -1,7 +1,6 @@
 package test
 
 import (
-	"encoding/json"
 	"errors"
 	"reflect"
 
@@ -11,12 +10,12 @@ import (
 
 func NewStore() *store {
 	return &store{
-		items: map[string][]byte{},
+		items: map[string]interface{}{},
 	}
 }
 
 type store struct {
-	items map[string][]byte
+	items map[string]interface{}
 }
 
 func (ds *store) Delete(ctx context.Context, key *datastore.Key) error {
@@ -40,7 +39,9 @@ func (ds *store) DeleteMulti(ctx context.Context, keys []*datastore.Key) error {
 func (ds *store) Get(ctx context.Context, key *datastore.Key, dst interface{}) error {
 	data, ok := ds.items[key.Encode()]
 	if ok {
-		return json.Unmarshal(data, &dst)
+		reflect.Indirect(reflect.ValueOf(dst)).Set(reflect.Indirect(reflect.ValueOf(data)))
+		// reflect.ValueOf(dst).Set(reflect.Indirect(reflect.ValueOf(data)))
+		return nil
 	}
 
 	return errors.New("entity does not exist")
@@ -54,6 +55,7 @@ func (ds *store) GetMulti(ctx context.Context, keys []*datastore.Key, dst interf
 		if err != nil {
 			return err
 		}
+
 		value.Index(i).Set(reflect.ValueOf(item))
 	}
 	return nil
@@ -63,11 +65,10 @@ func (ds *store) Put(ctx context.Context, key *datastore.Key, src interface{}) (
 	if src == nil {
 		return key, errors.New("item is nil")
 	}
-	data, err := json.Marshal(src)
-	if err == nil {
-		ds.items[key.Encode()] = data
-	}
-	return key, err
+
+	ds.items[key.Encode()] = src
+
+	return key, nil
 }
 
 func (ds *store) PutMulti(ctx context.Context, keys []*datastore.Key, src interface{}) ([]*datastore.Key, error) {
@@ -97,5 +98,5 @@ func (ds *store) Contains(key *datastore.Key) bool {
 }
 
 func (ds *store) Clear() {
-	ds.items = map[string][]byte{}
+	ds.items = map[string]interface{}{}
 }

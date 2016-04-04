@@ -2,6 +2,7 @@ package horsefeather
 
 import (
 	"reflect"
+	"sync"
 
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/datastore"
@@ -155,13 +156,17 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 	value := reflect.Indirect(reflect.ValueOf(dst))
 
 	result := map[*datastore.Key]interface{}{}
+	lock := sync.Mutex{}
 	workers := make([]cogger.Cog, 0, len(keys))
 	createMemoryLoaders := cogs.Simple(ctx, func() error {
 		if len(keys) != value.Len() {
 			return ErrInvalidEntityType
 		}
+
 		for i := 0; i < len(keys); i++ {
+			lock.Lock()
 			result[keys[i]] = nil
+			lock.Unlock()
 			func(i int) {
 
 				found := false
@@ -170,8 +175,9 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 					encodedKey := keys[i].Encode()
 					if stash.Has(ctx, encodedKey) {
 						data := stash.Get(ctx, encodedKey)
-
+						lock.Lock()
 						result[keys[i]] = data
+						lock.Unlock()
 						found = true
 					}
 					return nil
@@ -187,7 +193,9 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 						data := reflect.New(item).Interface()
 						err := mc(ctx).Get(ctx, keys[i], &data)
 						if err == nil {
+							lock.Lock()
 							result[keys[i]] = data
+							lock.Unlock()
 						}
 
 						found = err == nil
@@ -202,6 +210,7 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 
 			}(i)
 		}
+
 		return nil
 	})
 
@@ -214,11 +223,13 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 
 	remainingKeys := make([]*datastore.Key, 0, len(keys))
 	findMissingItems := cogs.Simple(ctx, func() error {
+		lock.Lock()
 		for key, item := range result {
 			if item == nil {
 				remainingKeys = append(remainingKeys, key)
 			}
 		}
+		lock.Unlock()
 
 		return nil
 	})
@@ -227,22 +238,35 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 		func() bool { return len(remainingKeys) > 0 && IsDatastoreAllowed(ctx) },
 		cogs.Simple(ctx, func() error {
 			l := len(remainingKeys)
+
 			remainingItems := reflect.MakeSlice(value.Type(), l, l)
 
-			err := ds(ctx).GetMulti(ctx, remainingKeys, remainingItems.Interface())
+			ds(ctx).GetMulti(ctx, remainingKeys, remainingItems.Interface())
+			lock.Lock()
 			for i := 0; i < remainingItems.Len(); i++ {
-				result[remainingKeys[i]] = remainingItems.Index(i).Interface()
+				itemValue := remainingItems.Index(i)
+				key := remainingKeys[i]
+				if key != nil && itemValue.IsValid() {
+					result[key] = itemValue.Interface()
+				}
 			}
-
-			return err
+			lock.Unlock()
+			return nil
 		}),
 	)
 
 	setResultsToDst := cogs.Simple(ctx, func() error {
 		for i, key := range keys {
-			item := result[key]
-			if item != nil && value.Index(i).Type().AssignableTo(reflect.TypeOf(item)) {
-				value.Index(i).Set(reflect.ValueOf(item))
+			lock.Lock()
+			item, ok := result[key]
+			lock.Unlock()
+			if ok && item != nil {
+
+				itemValue := reflect.ValueOf(item)
+
+				if itemValue.IsValid() && value.Index(i).Type().AssignableTo(reflect.TypeOf(item)) {
+					value.Index(i).Set(itemValue)
+				}
 			}
 		}
 		return nil
