@@ -15,6 +15,9 @@ type Memcache interface {
 
 func mc(ctx context.Context) Memcache {
 	box := c(ctx)
+	box.RLock()
+	defer box.RUnlock()
+
 	if box.mc == nil {
 		panic(ErrNoContext)
 	}
@@ -23,16 +26,26 @@ func mc(ctx context.Context) Memcache {
 
 func AddMemcache(ctx context.Context, mc Memcache) context.Context {
 	box := c(ctx)
+	box.Lock()
+	defer box.Unlock()
+
 	box.mc = mc
 	return setC(ctx, box)
 }
 
 func OnlyMemcache(ctx context.Context, flag bool) context.Context {
 	box := c(ctx)
+	box.Lock()
+	defer box.Unlock()
+
 	box.noDS = flag
 	return setC(ctx, box)
 }
 
 func IsMemcacheAllowed(ctx context.Context) bool {
-	return !c(ctx).noMC
+	box := c(ctx)
+	box.RLock()
+	defer box.RUnlock()
+
+	return !box.noMC
 }

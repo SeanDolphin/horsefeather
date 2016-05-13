@@ -334,14 +334,20 @@ var _ = Describe("Store", func() {
 				It("should get all that even if it is split between the store and memcache", func() {
 					_, err := PutMulti(ctx, keys, &data)
 					Expect(err).ToNot(HaveOccurred())
-
+					Expect(store.Len()).To(Equal(len(keys)))
+					Expect(cache.Len()).To(Equal(len(keys)))
 					for i, key := range keys {
 						if i%2 == 0 {
-							cache.Delete(ctx, key)
+							err = cache.Delete(ctx, key)
+							Expect(err).ToNot(HaveOccurred())
 						} else {
-							store.Delete(ctx, key)
+							err = store.Delete(ctx, key)
+							Expect(err).ToNot(HaveOccurred())
+
 						}
 					}
+					Expect(store.Len()).To(Equal(2))
+					Expect(cache.Len()).To(Equal(1))
 
 					var results = make([]string, len(keys))
 					err = GetMulti(ctx, keys, &results)

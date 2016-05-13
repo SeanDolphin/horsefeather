@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"sync"
 
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/datastore"
@@ -16,10 +17,20 @@ func NewStore() *store {
 }
 
 type store struct {
+	sync.RWMutex
 	items map[string][]byte
 }
 
+func (ds *store) Len() int {
+	ds.RLock()
+	defer ds.RUnlock()
+	return len(ds.items)
+}
+
 func (ds *store) Delete(ctx context.Context, key *datastore.Key) error {
+	ds.Lock()
+	defer ds.Unlock()
+
 	if _, ok := ds.items[key.Encode()]; !ok {
 		return errors.New("does not exist")
 	}
@@ -38,6 +49,9 @@ func (ds *store) DeleteMulti(ctx context.Context, keys []*datastore.Key) error {
 }
 
 func (ds *store) Get(ctx context.Context, key *datastore.Key, dst interface{}) error {
+	ds.RLock()
+	defer ds.RUnlock()
+
 	data, ok := ds.items[key.Encode()]
 	if ok {
 		return json.Unmarshal(data, &dst)
@@ -54,12 +68,20 @@ func (ds *store) GetMulti(ctx context.Context, keys []*datastore.Key, dst interf
 		if err != nil {
 			return err
 		}
-		value.Index(i).Set(reflect.ValueOf(item))
+		valueOf := reflect.ValueOf(item)
+		v := value.Index(i)
+		if v.Kind() == reflect.Ptr {
+			v.Set(reflect.New(v.Type().Elem()))
+		} else {
+			v.Set(valueOf)
+		}
 	}
 	return nil
 }
 
 func (ds *store) Put(ctx context.Context, key *datastore.Key, src interface{}) (*datastore.Key, error) {
+	ds.Lock()
+	defer ds.Unlock()
 	if src == nil {
 		return key, errors.New("item is nil")
 	}
@@ -92,10 +114,14 @@ func (ds *store) PutMulti(ctx context.Context, keys []*datastore.Key, src interf
 }
 
 func (ds *store) Contains(key *datastore.Key) bool {
+	ds.RLock()
+	defer ds.RUnlock()
 	_, ok := ds.items[key.Encode()]
 	return ok
 }
 
 func (ds *store) Clear() {
+	ds.Lock()
+	defer ds.Unlock()
 	ds.items = map[string][]byte{}
 }

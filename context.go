@@ -1,16 +1,21 @@
 package horsefeather
 
-import "golang.org/x/net/context"
+import (
+	"sync"
+
+	"golang.org/x/net/context"
+)
 
 var contextKey = "horsefeatherkey"
 
-func c(ctx context.Context) *container {
+func c(ctx context.Context) (box *container) {
 	value := ctx.Value(&contextKey)
 	if value == nil {
-		return &container{}
+		box = &container{}
+		setC(ctx, box)
+	} else {
+		box = value.(*container)
 	}
-
-	box := value.(*container)
 
 	return box
 }
@@ -21,6 +26,8 @@ func setC(ctx context.Context, box *container) context.Context {
 }
 
 type container struct {
+	sync.RWMutex
+
 	mc   Memcache
 	noMC bool
 
@@ -30,6 +37,9 @@ type container struct {
 
 func reset(ctx context.Context) {
 	box := c(ctx)
+	box.Lock()
+	defer box.Unlock()
+
 	box.noDS = false
 	box.noMC = false
 	setC(ctx, box)

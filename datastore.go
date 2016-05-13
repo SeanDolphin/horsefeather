@@ -16,6 +16,9 @@ type Datastore interface {
 
 func ds(ctx context.Context) Datastore {
 	box := c(ctx)
+	box.RLock()
+	defer box.RUnlock()
+
 	if box.ds == nil {
 		panic(ErrNoContext)
 	}
@@ -24,16 +27,26 @@ func ds(ctx context.Context) Datastore {
 
 func AddDatastore(ctx context.Context, ds Datastore) context.Context {
 	box := c(ctx)
+	box.Lock()
+	defer box.Unlock()
+
 	box.ds = ds
 	return setC(ctx, box)
 }
 
 func OnlyDatastore(ctx context.Context, flag bool) context.Context {
 	box := c(ctx)
+	box.Lock()
+	defer box.Unlock()
+
 	box.noMC = flag
 	return setC(ctx, box)
 }
 
 func IsDatastoreAllowed(ctx context.Context) bool {
-	return !c(ctx).noDS
+	box := c(ctx)
+	box.RLock()
+	defer box.RUnlock()
+
+	return !box.noDS
 }
