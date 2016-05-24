@@ -1,7 +1,6 @@
 package test
 
 import (
-	"encoding/json"
 	"errors"
 	"reflect"
 	"sync"
@@ -12,7 +11,7 @@ import (
 
 func NewStore() *store {
 	return &store{
-		items: map[string][]byte{},
+		items: map[string]interface{}{},
 	}
 }
 
@@ -54,7 +53,9 @@ func (ds *store) Get(ctx context.Context, key *datastore.Key, dst interface{}) e
 
 	data, ok := ds.items[key.Encode()]
 	if ok {
-		return json.Unmarshal(data, &dst)
+		reflect.Indirect(reflect.ValueOf(dst)).Set(reflect.Indirect(reflect.ValueOf(data)))
+		// reflect.ValueOf(dst).Set(reflect.Indirect(reflect.ValueOf(data)))
+		return nil
 	}
 
 	return errors.New("entity does not exist")
@@ -75,6 +76,7 @@ func (ds *store) GetMulti(ctx context.Context, keys []*datastore.Key, dst interf
 		} else {
 			v.Set(valueOf)
 		}
+
 	}
 	return nil
 }
@@ -85,11 +87,10 @@ func (ds *store) Put(ctx context.Context, key *datastore.Key, src interface{}) (
 	if src == nil {
 		return key, errors.New("item is nil")
 	}
-	data, err := json.Marshal(src)
-	if err == nil {
-		ds.items[key.Encode()] = data
-	}
-	return key, err
+
+	ds.items[key.Encode()] = src
+
+	return key, nil
 }
 
 func (ds *store) PutMulti(ctx context.Context, keys []*datastore.Key, src interface{}) ([]*datastore.Key, error) {
