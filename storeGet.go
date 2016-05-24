@@ -36,7 +36,11 @@ func Get(ctx context.Context, key *datastore.Key, dst interface{}) error {
 			order.If(ctx,
 				func() bool { return !found && IsDatastoreAllowed(ctx) },
 				cogs.Simple(ctx, func() error {
-					return ds(ctx).Get(ctx, key, dst)
+					err := ds(ctx).Get(ctx, key, dst)
+					if err == nil {
+						mc(ctx).Set(ctx, key, dst)
+					}
+					return err
 				}),
 			),
 		),

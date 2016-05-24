@@ -2,6 +2,7 @@ package horsefeather
 
 import (
 	"reflect"
+	"time"
 
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/datastore"
@@ -22,7 +23,7 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 			return ErrInvalidEntityType
 		}
 		for i := 0; i < len(keys); i++ {
-			result.Set(keys[i], nil)
+			result.Set(ctx, keys[i], nil)
 			func(i int) {
 
 				found := false
@@ -32,7 +33,7 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 					if stash.Has(ctx, encodedKey) {
 						data := stash.Get(ctx, encodedKey)
 
-						result.Set(keys[i], data)
+						result.Set(ctx, keys[i], data)
 						found = true
 					}
 					return nil
@@ -48,7 +49,7 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 						data := reflect.New(item).Interface()
 						err := mc(ctx).Get(ctx, keys[i], &data)
 						if err == nil {
-							result.Set(keys[i], data)
+							result.Set(ctx, keys[i], data)
 						}
 
 						found = err == nil
@@ -84,18 +85,21 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 			l := len(remainingKeys)
 			remainingItems := reflect.MakeSlice(value.Type(), l, l)
 
-			err := ds(ctx).GetMulti(ctx, remainingKeys, remainingItems.Interface())
+			ds(ctx).GetMulti(ctx, remainingKeys, remainingItems.Interface())
 			for i := 0; i < remainingItems.Len(); i++ {
-				result.Set(remainingKeys[i], remainingItems.Index(i).Interface())
+				result.Set(ctx, remainingKeys[i], remainingItems.Index(i).Interface())
 			}
 
-			return err
+			subCtx, _ := context.WithTimeout(ctx, 5*time.Second)
+			mc(ctx).SetMulti(subCtx, remainingKeys, remainingItems.Interface())
+
+			return nil
 		}),
 	)
 
 	setResultsToDst := cogs.Simple(ctx, func() error {
 		for i, key := range keys {
-			item := result.Get(key)
+			item := result.Get(ctx, key)
 			if item != nil && value.Index(i).Type().AssignableTo(reflect.TypeOf(item)) {
 				value.Index(i).Set(reflect.ValueOf(item))
 			}

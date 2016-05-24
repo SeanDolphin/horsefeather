@@ -3,6 +3,8 @@ package horsefeather
 import (
 	"sync"
 
+	"golang.org/x/net/context"
+
 	"google.golang.org/appengine/datastore"
 )
 
@@ -17,13 +19,13 @@ func newResult() *result {
 	}
 }
 
-func (r *result) Set(key *datastore.Key, item interface{}) {
+func (r *result) Set(ctx context.Context, key *datastore.Key, item interface{}) {
 	r.Lock()
 	defer r.Unlock()
 	r.items[key] = item
 }
 
-func (r *result) Get(key *datastore.Key) interface{} {
+func (r *result) Get(ctx context.Context, key *datastore.Key) interface{} {
 	r.RLock()
 	defer r.RUnlock()
 	return r.items[key]
