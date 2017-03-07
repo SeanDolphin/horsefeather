@@ -27,11 +27,26 @@ func (mc *cache) DeleteMulti(ctx context.Context, keys []*datastore.Key) error {
 }
 
 func (mc *cache) Get(ctx context.Context, key *datastore.Key, dst interface{}) error {
-	_, err := mc.Codec.Get(ctx, key.Encode(), dst)
+	keyString := key.Encode()
+	_, err := mc.Codec.Get(ctx, keyString, dst)
 	return err
 }
 
 func (mc *cache) Set(ctx context.Context, key *datastore.Key, dst interface{}) error {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Debugf(ctx, "%s", err)
+			log.Debugf(ctx, "%+v %+v", key, dst)
+		}
+	}()
+	if key == nil {
+		return datastore.ErrInvalidKey
+	}
+
+	if dst == nil {
+		return datastore.ErrInvalidEntityType
+	}
+
 	err := mc.Codec.Set(ctx, &memcache.Item{
 		Key:    key.Encode(),
 		Object: dst,

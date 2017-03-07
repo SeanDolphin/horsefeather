@@ -37,9 +37,9 @@ func Get(ctx context.Context, key *datastore.Key, dst interface{}) error {
 				func() bool { return !found && IsDatastoreAllowed(ctx) },
 				cogs.Simple(ctx, func() error {
 					err := ds(ctx).Get(ctx, key, dst)
-					if err == nil {
-						mc(ctx).Set(ctx, key, dst)
-					}
+					//		if err == nil {
+					//			mc(ctx).Set(ctx, key, dst)
+					//		}
 					return err
 				}),
 			),

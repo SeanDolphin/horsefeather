@@ -2,7 +2,6 @@ package horsefeather
 
 import (
 	"reflect"
-	"time"
 
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/datastore"
@@ -86,12 +85,12 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 			remainingItems := reflect.MakeSlice(value.Type(), l, l)
 
 			ds(ctx).GetMulti(ctx, remainingKeys, remainingItems.Interface())
-			for i := 0; i < remainingItems.Len(); i++ {
-				result.Set(ctx, remainingKeys[i], remainingItems.Index(i).Interface())
-			}
+			//			for i := 0; i < remainingItems.Len(); i++ {
+			//				result.Set(ctx, remainingKeys[i], remainingItems.Index(i).Interface())
+			//			}
 
-			subCtx, _ := context.WithTimeout(ctx, 5*time.Second)
-			mc(ctx).SetMulti(subCtx, remainingKeys, remainingItems.Interface())
+			//	subCtx, _ := context.WithTimeout(ctx, 5*time.Second)
+			//	mc(ctx).SetMulti(subCtx, remainingKeys, remainingItems.Interface())
 
 			return nil
 		}),
