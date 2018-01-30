@@ -11,6 +11,9 @@ import (
 
 func Delete(ctx context.Context, key *datastore.Key) error {
 	defer reset(ctx)
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 	errs := wait.Resolve(ctx,
 		order.Parallel(ctx,
 			cogs.Simple(ctx, func() error {
@@ -39,6 +42,9 @@ func Delete(ctx context.Context, key *datastore.Key) error {
 
 func DeleteMulti(ctx context.Context, keys []*datastore.Key) error {
 	defer reset(ctx)
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 	errs := wait.Resolve(ctx,
 		order.Parallel(ctx,
 			cogs.Simple(ctx, func() error {

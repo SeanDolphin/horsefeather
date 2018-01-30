@@ -51,11 +51,7 @@ func (mc *cache) Set(ctx context.Context, key *datastore.Key, dst interface{}) e
 		Key:    key.Encode(),
 		Object: dst,
 	})
-	if err != nil {
-		log.Errorf(ctx, "Mc Set: %s", err)
-	} else if key.Kind() == "tree" {
-		log.Criticalf(ctx, "Set %s", key)
-	}
+
 	return err
 }
 
@@ -72,7 +68,6 @@ func (mc *cache) SetMulti(ctx context.Context, keys []*datastore.Key, dst interf
 	}
 	for i := 0; i < dstLength; i++ {
 		if ctx.Err() != nil {
-			log.Errorf(ctx, "Missed: %d", dstLength-i)
 			i = dstLength
 		} else {
 			item := value.Index(i)

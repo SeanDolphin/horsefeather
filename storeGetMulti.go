@@ -5,119 +5,60 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/datastore"
-	"gopkg.in/cogger/cogger.v1"
-	"gopkg.in/cogger/cogger.v1/cogs"
-	"gopkg.in/cogger/cogger.v1/order"
-	"gopkg.in/cogger/cogger.v1/wait"
-	"gopkg.in/cogger/stash.v1"
 )
 
 func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error {
 	defer reset(ctx)
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 	value := reflect.Indirect(reflect.ValueOf(dst))
 	result := newResult()
-	workers := make([]cogger.Cog, 0, len(keys))
-	createMemoryLoaders := cogs.Simple(ctx, func() error {
-		if len(keys) != value.Len() {
-			return ErrInvalidEntityType
-		}
-		for i := 0; i < len(keys); i++ {
-			result.Set(ctx, keys[i], nil)
-			func(i int) {
 
-				found := false
+	var errs = []error{}
+	if len(keys) != value.Len() {
+		return ErrInvalidEntityType
+	}
 
-				loadFromStash := cogs.Simple(ctx, func() error {
-					encodedKey := keys[i].Encode()
-					if stash.Has(ctx, encodedKey) {
-						data := stash.Get(ctx, encodedKey)
+	for i := 0; i < len(keys); i++ {
+		result.Set(ctx, keys[i], nil)
 
-						result.Set(ctx, keys[i], data)
-						found = true
-					}
-					return nil
-				})
-
-				loadFromMC := order.If(ctx,
-					func() bool { return !found && IsMemcacheAllowed(ctx) },
-					cogs.Simple(ctx, func() error {
-						item := value.Index(i).Type()
-						if item.Kind() == reflect.Ptr {
-							item = item.Elem()
-						}
-						data := reflect.New(item).Interface()
-						err := mc(ctx).Get(ctx, keys[i], &data)
-						if err == nil {
-							result.Set(ctx, keys[i], data)
-						}
-
-						found = err == nil
-						return nil
-					}),
-				)
-				workers = append(workers, order.Series(ctx,
-					loadFromStash,
-					loadFromMC,
-				))
-
-			}(i)
-		}
-		return nil
-	})
-
-	executeMemoryLoaders := order.If(ctx,
-		func() bool { return len(workers) > 0 },
-		cogs.DeferredCreate(func() cogger.Cog {
-			return order.Parallel(ctx, workers...)
-		}),
-	)
-
-	var remainingKeys []*datastore.Key
-	findMissingItems := cogs.Simple(ctx, func() error {
-		remainingKeys = result.RemainingKeys()
-		return nil
-	})
-
-	loadMissing := order.If(ctx,
-		func() bool { return len(remainingKeys) > 0 && IsDatastoreAllowed(ctx) },
-		cogs.Simple(ctx, func() error {
-			l := len(remainingKeys)
-			remainingItems := reflect.MakeSlice(value.Type(), l, l)
-
-			ds(ctx).GetMulti(ctx, remainingKeys, remainingItems.Interface())
-			//			for i := 0; i < remainingItems.Len(); i++ {
-			//				result.Set(ctx, remainingKeys[i], remainingItems.Index(i).Interface())
-			//			}
-
-			//	subCtx, _ := context.WithTimeout(ctx, 5*time.Second)
-			//	mc(ctx).SetMulti(subCtx, remainingKeys, remainingItems.Interface())
-
-			return nil
-		}),
-	)
-
-	setResultsToDst := cogs.Simple(ctx, func() error {
-		for i, key := range keys {
-			item := result.Get(ctx, key)
-			if item != nil && value.Index(i).Type().AssignableTo(reflect.TypeOf(item)) {
-				value.Index(i).Set(reflect.ValueOf(item))
+		if IsMemcacheAllowed(ctx) {
+			item := value.Index(i).Type()
+			if item.Kind() == reflect.Ptr {
+				item = item.Elem()
+			}
+			data := reflect.New(item).Interface()
+			if err := mc(ctx).Get(ctx, keys[i], &data); err == nil {
+				result.Set(ctx, keys[i], data)
 			}
 		}
-		return nil
-	})
+	}
 
-	errs := wait.Resolve(ctx,
-		order.If(ctx,
-			func() bool { return len(keys) > 0 },
-			order.Series(ctx,
-				createMemoryLoaders,
-				executeMemoryLoaders,
-				findMissingItems,
-				loadMissing,
-				setResultsToDst,
-			),
-		),
-	)
+	if IsDatastoreAllowed(ctx) {
+		var remainingKeys = result.RemainingKeys()
+		l := len(remainingKeys)
+
+		if l > 0 {
+			remainingItems := reflect.MakeSlice(value.Type(), l, l)
+
+			if err := ds(ctx).GetMulti(ctx, remainingKeys, remainingItems.Interface()); err == nil {
+				for i := 0; i < l; i++ {
+					result.Set(ctx, remainingKeys[i], remainingItems.Index(i).Interface())
+				}
+			} else {
+				errs = append(errs, err)
+			}
+
+		}
+	}
+
+	for i, key := range keys {
+		item := result.Get(ctx, key)
+		if item != nil && value.Index(i).Type().AssignableTo(reflect.TypeOf(item)) {
+			value.Index(i).Set(reflect.ValueOf(item))
+		}
+	}
 
 	if len(errs) > 0 {
 		return ErrMulti(errs)
