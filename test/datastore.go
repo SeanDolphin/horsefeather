@@ -17,7 +17,7 @@ func NewStore() *store {
 
 type store struct {
 	sync.RWMutex
-	items map[string][]byte
+	items map[string]interface{}
 }
 
 func (ds *store) Len() int {
@@ -124,5 +124,5 @@ func (ds *store) Contains(key *datastore.Key) bool {
 func (ds *store) Clear() {
 	ds.Lock()
 	defer ds.Unlock()
-	ds.items = map[string][]byte{}
+	ds.items = map[string]interface{}{}
 }

@@ -2,6 +2,7 @@ package horsefeather
 
 import (
 	"reflect"
+	"sync"
 
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/datastore"
@@ -20,20 +21,27 @@ func GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) error
 		return ErrInvalidEntityType
 	}
 
+	wg := &sync.WaitGroup{}
 	for i := 0; i < len(keys); i++ {
 		result.Set(ctx, keys[i], nil)
 
 		if IsMemcacheAllowed(ctx) {
-			item := value.Index(i).Type()
-			if item.Kind() == reflect.Ptr {
-				item = item.Elem()
-			}
-			data := reflect.New(item).Interface()
-			if err := mc(ctx).Get(ctx, keys[i], &data); err == nil {
-				result.Set(ctx, keys[i], data)
-			}
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				item := value.Index(i).Type()
+				if item.Kind() == reflect.Ptr {
+					item = item.Elem()
+				}
+				data := reflect.New(item).Interface()
+				if err := mc(ctx).Get(ctx, keys[i], &data); err == nil {
+					result.Set(ctx, keys[i], data)
+				}
+			}(i)
 		}
 	}
+
+	wg.Wait()
 
 	if IsDatastoreAllowed(ctx) {
 		var remainingKeys = result.RemainingKeys()
